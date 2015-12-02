@@ -11,15 +11,22 @@ Package.describe({
 });
 
 Npm.depends({
-    'api-javascript': '0.5.13',
+    'api-javascript': '0.5.17',
 })
 
 Package.onUse(function(api) {
   api.versionsFrom('1.1.0.2');
 
+  api.use([ 'session' ]);
+
+  // Client only
+  api.addFiles([
+    'lib/client/client.js',
+  ], 'client');
+
   // Server only
   api.addFiles([
-        'lib/server/db.js',
+    'lib/server/db.js',
   ], 'server');
 
   api.addFiles('simple.js');
