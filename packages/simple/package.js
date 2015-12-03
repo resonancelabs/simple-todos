@@ -11,7 +11,7 @@ Package.describe({
 });
 
 Npm.depends({
-    'api-javascript': '0.5.17',
+    'api-javascript': '0.5.22',
 })
 
 Package.onUse(function(api) {
