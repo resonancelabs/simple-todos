@@ -12,10 +12,11 @@ Meteor.startup(function() {
     traceguide.options({
         access_token   : "{your_access_token}",
         group_name     : "meteor/simple",
+
+        /*service_host   : "localhost",
         debug          : true,
         log_to_console : true,
-        verbosity      : 2,
-        report_period_millis    : 500,
+        certificate_verification : false,*/
     });
 
     var rollback = [];
@@ -49,7 +50,6 @@ function wrapPassThrough(rollback, proto, name, prefix) {
         throw new Error('Prototype does not have a function named:', name);
     }
     proto[name] = function() {
-        console.log("Call to '" + name + "'");
         var span = traceguide.span(prefix + "/" + name);
         span.endUserID(this.userId || "unknown_user");
 
@@ -57,6 +57,7 @@ function wrapPassThrough(rollback, proto, name, prefix) {
         try {
             ret = baseImp.apply(this, arguments);
         } finally {
+            span.infof("Call to method '%s' with arguments '%j' returned '%j'", name, arguments, ret);
             span.end();
         }
         return ret;
