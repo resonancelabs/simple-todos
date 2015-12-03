@@ -1,40 +1,76 @@
-var traceguide = Npm.require('api-javascript/dist/traceguide-node-debug.js');
+var traceguide = Npm.require('api-javascript');
+var Fiber = Npm.require('fibers');
 var statusMonitor = null;
 
 Meteor.startup(function() {
-
+    // Initialize the reporting configuration
     traceguide.options({
         access_token   : "{your_access_token}",
         group_name     : "meteor/simple",
-
-        service_host   : "localhost",
-        debug          : true,
-        log_to_console : true,
-        certificate_verification : false,
     });
 
+    // Instrument the code to capture spans and monitoring information
     statusMonitor = new StatusMonitor();
-
     var rollback = [];
     try {
-        instrumentMethods(rollback, Meteor.default_server.method_handlers);
+        instrumentMeteorMethods(rollback, Meteor.default_server.method_handlers);
+        instrumentCollection(rollback, Mongo.Collection.prototype);
         statusMonitor.start();
     } catch (e) {
-        console.log('Instrumentation failed. Rolling back.');
+        console.error('Instrumentation failed. Rolling back.');
         _.each(rollback, function(arr) {
             arr[0][arr[1]] = arr[2];
         });
+        statusMonitor.stop();
     }
 });
 
-function instrumentMethods(rollback, list) {
-    _.each(_.keys(list), function (name) {
-        wrapPassThrough(rollback, list, name, "meteor/methods");
+function instrumentCollection(rollback, proto) {
+    var methods = [
+        'find',
+        'insert',
+        'update',
+        'remove',
+    ];
+    _.each(methods, function(name) {
+        wrapCollectionFunc(rollback, proto, name, "meteor/Mongo");
     });
-    console.log('Method instrumentation complete');
+    traceguide.infof("Mongo instrumentation complete");
+}
+
+function wrapCollectionFunc(rollback, proto, name, prefix) {
+    var baseImp = proto[name];
+    rollback.push(proto, name, baseImp);
+
+    if (!baseImp || typeof baseImp !== 'function') {
+        throw new Error("Prototype does not have a function named:", name);
+    }
+    proto[name] = function() {
+        var span = traceguide.span(prefix + "/" + name);
+        var fiber = Fiber ? Fiber.current : null;
+        if (fiber && fiber._traceguide_current_user_id) {
+            span.endUserID(fiber._traceguide_current_user_id);
+        }
+
+        var ret;
+        try {
+            ret = baseImp.apply(this, arguments);
+        } finally {
+            span.infof("Call to method '%s' with arguments '%j' returned '%j'", name, arguments, ret);
+            span.end();
+        }
+        return ret;
+    };
+}
+
+function instrumentMeteorMethods(rollback, list) {
+    _.each(_.keys(list), function (name) {
+        wrapMeteorMethod(rollback, list, name, "meteor/methods");
+    });
+    traceguide.infof('Method instrumentation complete');
 };
 
-function wrapPassThrough(rollback, proto, name, prefix) {
+function wrapMeteorMethod(rollback, proto, name, prefix) {
     var baseImp = proto[name];
     rollback.push(proto, name, baseImp);
 
@@ -43,9 +79,14 @@ function wrapPassThrough(rollback, proto, name, prefix) {
     }
     proto[name] = function() {
         var span = traceguide.span(prefix + "/" + name);
-        span.endUserID(this.userId || "unknown_user");
-
+        var userId = this.userId || "unknown_user";
+        span.endUserID(userId);
         span.infof("Process status: %j", statusMonitor.status());
+
+        var fiber = Fiber ? Fiber.current : null;
+        if (fiber) {
+            fiber._traceguide_current_user_id = userId;
+        }
 
         var ret;
         try {

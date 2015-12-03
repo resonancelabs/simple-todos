@@ -11,7 +11,7 @@ Package.describe({
 });
 
 Npm.depends({
-    'api-javascript': '0.5.22',
+    'api-javascript': '0.5.23',
     'event-loop-monitor' : '0.1.0',
 })
 
