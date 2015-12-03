@@ -12,6 +12,7 @@ Package.describe({
 
 Npm.depends({
     'api-javascript': '0.5.22',
+    'event-loop-monitor' : '0.1.0',
 })
 
 Package.onUse(function(api) {
@@ -26,7 +27,8 @@ Package.onUse(function(api) {
 
   // Server only
   api.addFiles([
-    'lib/server/db.js',
+    'lib/server/status_monitor.js',
+    'lib/server/server.js',
   ], 'server');
 
   api.addFiles('simple.js');

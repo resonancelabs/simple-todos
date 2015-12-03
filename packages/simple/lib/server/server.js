@@ -1,33 +1,25 @@
 var traceguide = Npm.require('api-javascript/dist/traceguide-node-debug.js');
+var statusMonitor = null;
 
 Meteor.startup(function() {
-
-    if (!Meteor.isServer) {
-        return;
-    }
-    if (!Mongo) {
-        return;
-    }
 
     traceguide.options({
         access_token   : "{your_access_token}",
         group_name     : "meteor/simple",
 
-        /*service_host   : "localhost",
+        service_host   : "localhost",
         debug          : true,
         log_to_console : true,
-        certificate_verification : false,*/
+        certificate_verification : false,
     });
 
+    statusMonitor = new StatusMonitor();
+
     var rollback = [];
-    var failed = false;
     try {
         instrumentMethods(rollback, Meteor.default_server.method_handlers);
+        statusMonitor.start();
     } catch (e) {
-        failed = true;
-    }
-
-    if (failed) {
         console.log('Instrumentation failed. Rolling back.');
         _.each(rollback, function(arr) {
             arr[0][arr[1]] = arr[2];
@@ -52,6 +44,8 @@ function wrapPassThrough(rollback, proto, name, prefix) {
     proto[name] = function() {
         var span = traceguide.span(prefix + "/" + name);
         span.endUserID(this.userId || "unknown_user");
+
+        span.infof("Process status: %j", statusMonitor.status());
 
         var ret;
         try {
