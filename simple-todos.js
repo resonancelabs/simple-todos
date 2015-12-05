@@ -1,6 +1,12 @@
 Tasks = new Mongo.Collection("tasks");
 
+Traceguide.initialize({
+    access_token : "{your_access_token}",
+});
+
 if (Meteor.isServer) {
+  Traceguide.options({ group_name: "simple-todos/server" });
+
   // This code only runs on the server
   // Only publish tasks that are public or belong to the current user
   Meteor.publish("tasks", function () {
@@ -14,6 +20,8 @@ if (Meteor.isServer) {
 }
 
 if (Meteor.isClient) {
+  Traceguide.options({ group_name: "simple-todos/client" });
+
   // This code only runs on the client
   Meteor.subscribe("tasks");
 
