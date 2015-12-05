@@ -1,7 +1,10 @@
 Tasks = new Mongo.Collection("tasks");
 
 Traceguide.initialize({
-    access_token : "{your_access_token}",
+    access_token   : "{your_access_token}",
+    debug          : true,
+    log_to_console : true,
+    verbosity      : 2, 
 });
 
 if (Meteor.isServer) {
